@@ -3,6 +3,7 @@ use std::time;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::AtomicU64;
 
 fn stop_flag_example() {
     static STOP: AtomicBool = AtomicBool::new(false);
@@ -64,8 +65,30 @@ fn process_reporting_example() {
     println!("Done!");
 }
 
+fn get_x() -> u64 {
+    static X: AtomicU64 = AtomicU64::new(0);
+    let mut x = X.load(Relaxed);
+    if x == 0 {
+        x = 0xdeadbeef;
+        X.store(x, Relaxed);
+    }
+    x
+}
+
+fn lazy_init_example() {
+    thread::scope(|s| {
+        for _ in 0..5 {
+            s.spawn(|| {
+                println!("{:08x}", get_x());
+            });
+        }
+    });
+
+}
+
 
 fn main() {
     stop_flag_example();
     process_reporting_example();
+    lazy_init_example();
 }
