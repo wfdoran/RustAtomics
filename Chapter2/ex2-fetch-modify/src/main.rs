@@ -1,6 +1,7 @@
 use std::thread;
 use std::time;
 use std::sync::atomic::AtomicI32;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -14,13 +15,14 @@ fn basic_demo() {
 
 fn process_reporting_example() {
     let num_done = &AtomicUsize::new(0);
-    let num_todo = 100;
+    let todo_per_thread = 25;
     let num_threads = 4;
+    let num_todo = todo_per_thread * num_threads;
 
     thread::scope(|s| {
         for _ in 0..num_threads {
             s.spawn(move || {
-                for _ in 0..num_todo/num_threads {
+                for _ in 0..todo_per_thread {
                     thread::sleep(time::Duration::from_millis(100));
                     num_done.fetch_add(1, Relaxed);
                 }
@@ -41,7 +43,56 @@ fn process_reporting_example() {
     println!("Done!");
 }
 
+fn statistics() {
+    let num_done = &AtomicUsize::new(0);
+    let total_time = &AtomicU64::new(0);
+    let max_time = &AtomicU64::new(0);
+
+    let todo_per_thread = 25;
+    let num_threads = 4;
+    let num_todo = todo_per_thread * num_threads as usize;
+    
+    thread::scope(|s| {
+        for t in 0..num_threads {
+            s.spawn(move || {
+                for i in 0..todo_per_thread {
+                    let start = time::Instant::now();
+                    let val = t * todo_per_thread + i;
+                    let sleep_time = (50 + (23 * val) % 100) as u64;
+                    thread::sleep(time::Duration::from_millis(sleep_time));
+                    let time_taken = start.elapsed().as_micros() as u64;
+                    num_done.fetch_add(1, Relaxed);
+                    total_time.fetch_add(time_taken, Relaxed);
+                    max_time.fetch_max(time_taken, Relaxed);
+                }
+            });
+        }
+
+        loop {
+            let total_time = time::Duration::from_millis(total_time.load(Relaxed));
+            let max_time = time::Duration::from_millis(max_time.load(Relaxed));
+            let n = num_done.load(Relaxed);
+
+            if n == 0 {
+                println!("Working.. nothing done yet.");
+            } else {
+                let pct = 100.0 * (n as f64) / (num_todo as f64);
+                println!("Working.. {:5.1}% done, {:?} average, {:?} peak.",
+                pct, total_time / n as u32, max_time);
+            }
+
+            if n == num_todo {
+                break;
+            }
+            thread::sleep(time::Duration::from_secs(1));
+        }
+    });
+
+    println!("Done!");
+}
+
 fn main() {
     basic_demo();
     process_reporting_example();
+    statistics();
 }
