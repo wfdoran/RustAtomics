@@ -2,6 +2,7 @@ use std::thread;
 use std::time;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -91,8 +92,32 @@ fn statistics() {
     println!("Done!");
 }
 
+fn allocate_new_id() -> u32 {
+    static NEXT_ID: AtomicU32 = AtomicU32::new(0);
+    NEXT_ID.fetch_add(1, Relaxed)
+}
+
+fn allocation_example() {
+    let num_threads = 5;
+    let ids_per_thread = 20;
+
+    thread::scope( |s| {
+        for _ in 0..num_threads {
+            s.spawn(|| {
+                for _ in 0..ids_per_thread {
+                    let id = allocate_new_id();
+                    print!("{id} ");
+                    thread::sleep(time::Duration::from_millis(100));
+                }
+            });
+        }
+    });
+    println!();
+}
+
 fn main() {
     basic_demo();
     process_reporting_example();
     statistics();
+    allocation_example();
 }
