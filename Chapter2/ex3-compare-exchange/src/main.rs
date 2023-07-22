@@ -1,7 +1,9 @@
 use std::thread;
 use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time;
+use rand::Rng;
 
 fn increment(a: &AtomicU32) {
     let mut current = a.load(Relaxed);
@@ -89,8 +91,38 @@ fn allocation_example() {
    
 }
 
+fn get_key() -> u64 {
+    const DEFAULT_KEY:u64 = 0;
+    static KEY: AtomicU64 = AtomicU64::new(DEFAULT_KEY);
+    let key = KEY.load(Relaxed);
+    if key == DEFAULT_KEY {
+        let mut rng = rand::thread_rng();
+        let new_key = rng.gen::<u64>();
+        match KEY.compare_exchange_weak(DEFAULT_KEY, new_key, Relaxed, Relaxed) {
+            Ok(_) => new_key,
+            Err(k) => k,
+        }
+    } else {
+        key
+    }
+}
+
+fn get_key_example() {
+    let num_threads = 5;
+
+    thread::scope( |s| {
+        for _ in 0..num_threads {
+            s.spawn(|| {
+                println!("{}", get_key());
+            });
+        }
+    });
+
+
+}
 
 fn main() {
     increment_example();
     allocation_example();
+    get_key_example();
 }
