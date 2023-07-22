@@ -42,14 +42,16 @@ fn cell_example() {
 }
 
 fn g(v: &RefCell<Vec<i32>>) {
-       let a = v.borrow();
-        let b = v.borrow();
+    let a = v.borrow();
+    let b = v.borrow();
 
-        println!("{:?} {:?}", a, b);
-        // to avoid panic, need to drop these borrows    }
+    println!("{:?} {:?}", a, b);
 
+    // to avoid panic, need to drop these borrows 
+    // could also put into block {} forcing drop a end of block
     drop(a);
     drop(b);
+
 
     v.borrow_mut().push(4);
     println!("{:?}", v.borrow());
