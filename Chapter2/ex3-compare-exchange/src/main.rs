@@ -98,7 +98,7 @@ fn get_key() -> u64 {
     if key == DEFAULT_KEY {
         let mut rng = rand::thread_rng();
         let new_key = rng.gen::<u64>();
-        match KEY.compare_exchange_weak(DEFAULT_KEY, new_key, Relaxed, Relaxed) {
+        match KEY.compare_exchange(DEFAULT_KEY, new_key, Relaxed, Relaxed) {
             Ok(_) => new_key,
             Err(k) => k,
         }
