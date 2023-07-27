@@ -17,7 +17,13 @@ fn b() {
     println!("{x} {y}");
 }
 
-fn main() {
+fn f() {
+    let x = X.load(Relaxed);
+    println!("{x}");
+    assert!(x == 1 || x == 2);
+}
+
+fn happens_before() {
     let t1 = thread::spawn(b);
     let t2 = thread::spawn(a);
     let t3 = thread::spawn(b);
@@ -25,4 +31,19 @@ fn main() {
     t2.join().unwrap();
     t3.join().unwrap();
     b();
+    println!();
+}
+
+fn spawning_joining() {
+    X.store(1, Relaxed);
+    let t = thread::spawn(f);
+    X.store(2, Relaxed);
+    t.join().unwrap();
+    X.store(3, Relaxed);
+    println!();
+}
+
+fn main() {
+    happens_before();
+    spawning_joining();
 }
