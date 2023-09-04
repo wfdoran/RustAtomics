@@ -29,6 +29,15 @@ impl<T> Arc<T> {
     fn data(&self) -> &ArcData<T> {
         unsafe {self.ptr.as_ref() }
     }
+
+    pub fn get_mut(arc: &mut Self) ->  Option<&mut T> {
+        if arc.data().ref_count.load(Relaxed) == 1 {
+            fence(Acquire);
+            unsafe { Some(&mut arc.ptr.as_mut().data) }
+        } else {
+            None
+        }
+    }
 }
 
 impl<T> Deref for Arc<T> {
@@ -59,10 +68,66 @@ impl<T> Drop for Arc<T> {
     }
 }
 
+
+
 fn main() {
-    let a = Arc::new(5);
+    let mut a = Arc::new(5);
     let b = a.clone();
     println!("{}", *a);
-    drop(a);
     println!("{}", *b);
+
+    {
+        match Arc::get_mut(&mut a) {
+            Some(p) => {
+                *p = 6;
+            },
+            None => {
+                println!("no go!")
+            }
+        }
+    }
+    drop(b);
+
+    {
+        match Arc::get_mut(&mut a) {
+            Some(p) => {
+                *p = 6;
+            },
+            None => {
+                println!("no go!")
+            }
+        }
+    }
+
+    println!("{}", *a);
+}
+
+#[test]
+fn test() {
+    static NUM_DROPS: AtomicUsize = AtomicUsize::new(0);
+
+    struct DetectDrop;
+
+    impl Drop for DetectDrop {
+        fn drop(&mut self) { 
+            NUM_DROPS.fetch_add(1, Relaxed);
+        }
+    }
+
+    let x = Arc::new(("hello", DetectDrop));
+    let y = x.clone();
+
+    let t = std::thread::spawn(move || {
+        assert_eq!(x.0, "hello");
+    });
+
+    assert_eq!(y.0, "hello");
+
+    t.join().unwrap();
+
+    assert_eq!(NUM_DROPS.load(Relaxed), 0);
+
+    drop(y);
+
+    assert_eq!(NUM_DROPS.load(Relaxed), 1);
 }
